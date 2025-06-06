@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Angry Cow Run</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Arial', sans-serif;
+            color: white;
+        }
+        canvas {
+            display: block;
+        }
+        #ui-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 50; /* Ensure UI is above 3D scene */
+        }
+        #top-ui {
+            width: 100%;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: space-between;
+            text-shadow: 2px 2px 4px #000;
+            font-size: 1.5em;
+        }
+        #taunt-display {
+            position: absolute;
+            top: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #ffc107;
+            text-shadow: 3px 3px 6px #000;
+            padding: 10px 20px;
+            background-color: rgba(0,0,0,0.5);
+            border-radius: 15px;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+            pointer-events: none;
+        }
+        #bottom-ui {
+            width: 100%;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #punch-button {
+            pointer-events: all;
+            padding: 20px 40px;
+            font-size: 1.5em;
+            font-weight: bold;
+            color: white;
+            background: linear-gradient(145deg, #ff4b2b, #ff416c);
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2), 0 6px 6px rgba(0,0,0,0.2);
+            transition: transform 0.1s ease, box-shadow 0.1s ease;
+        }
+        #punch-button:active {
+            transform: scale(0.95);
+            box-shadow: 0 5px 10px rgba(0,0,0,0.2), 0 3px 3px rgba(0,0,0,0.2);
+        }
+        #game-over-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            pointer-events: all;
+            z-index: 100;
+        }
+        #game-over-screen h1 {
+            font-size: 4em;
+            color: #ff4b2b;
+            text-shadow: 3px 3px 6px #000;
+        }
+        #game-over-screen p {
+            font-size: 1.8em;
+        }
+        #gemini-report-container {
+            margin: 20px;
+            padding: 15px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            width: 80%;
+            max-width: 600px;
+        }
+        #gemini-report-button {
+            padding: 10px 20px;
+            font-size: 1.2em;
+            cursor: pointer;
+            border-radius: 8px;
+            border: none;
+            background-color: #ffc107;
+            color: black;
+            font-weight: bold;
+        }
+         #gemini-report-button:disabled {
+            background-color: #555;
+            cursor: not-allowed;
+        }
+        #gemini-report-content {
+            font-size: 1.1em;
+            margin-top: 15px;
+            text-align: left;
+            line-height: 1.5;
+        }
+        #restart-button {
+            margin-top: 10px;
+            padding: 15px 30px;
+            font-size: 1.5em;
+            cursor: pointer;
+            border-radius: 10px;
+            border: 2px solid white;
+            background-color: transparent;
+            color: white;
+            transition: background-color 0.2s, color 0.2s;
+        }
+        #restart-button:hover {
+            background-color: white;
+            color: black;
+        }
+         #start-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            pointer-events: all;
+            z-index: 100;
+        }
+        #start-screen h1 {
+            font-size: 3em;
+            color: #ffc107;
+        }
+        #start-screen p {
+            font-size: 1.2em;
+            max-width: 80%;
+            margin: 20px 0;
+        }
+        #start-button {
+            padding: 20px 40px;
+            font-size: 1.8em;
+            font-weight: bold;
+            color: black;
+            background: linear-gradient(145deg, #ffc107, #ff9800);
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            transition: transform 0.1s ease;
+        }
+        #start-button:active {
+            transform: scale(0.95);
+        }
+    </style>
+</head>
+<body>
+    <div id="ui-container">
+        <div id="top-ui">
+            <div id="score">Score: 0</div>
+            <div id="distance">Distance: 0m</div>
+        </div>
+        <div id="taunt-display"></div>
+        <div id="bottom-ui">
+            <button id="punch-button">PUNCH</button>
+        </div>
+    </div>
+
+    <div id="game-over-screen">
+        <h1>CAUGHT!</h1>
+        <p id="final-score">Your Score: 0</p>
+        <div id="gemini-report-container">
+            <button id="gemini-report-button">✨ Get News Report</button>
+            <p id="gemini-report-content" style="display:none;"></p>
+        </div>
+        <button id="restart-button">Restart Game</button>
+    </div>
+
+    <div id="start-screen">
+        <h1>Angry Cow Run</h1>
+        <p>The farmer wants you back! Run as far as you can.<br>Use <b>Left/Right Arrow Keys</b> or <b>Swipe</b> to change lanes.<br>Hit the <b>PUNCH</b> button to shove humans and score points.<br>Avoid cars and motorcycles, or you'll slow down and get caught!</p>
+        <button id="start-button">START RUNNING</button>
+    </div>
+
+    <script>
+        // --- Basic Setup ---
+        let scene, camera, renderer;
+        let gameState = 'start'; // 'start', 'playing', 'gameOver'
+
+        // --- Game Objects ---
+        let cow, owner;
+        let road, roadLines = [];
+        let buildings = [];
+        let obstacles = []; // { mesh, type: 'car' | 'motorcycle' | 'human' }
+        const lanes = [-3, 0, 3];
+        let currentLane = 1; // 0, 1, 2 for left, center, right
+
+        // --- Game Mechanics ---
+        let baseSpeed = 0.5;
+        let currentSpeed;
+        let distance = 0;
+        let score = 0;
+        let slowdownTimer = 0;
+        const slowdownDuration = 5 * 60; // 5 seconds at 60fps
+        const ownerBaseDistance = 10;
+        let ownerCurrentDistance;
+
+        // --- Controls ---
+        let touchStartX = 0;
+
+        // --- Audio ---
+        // Declare all audio variables globally to ensure they are accessible
+        let music, musicSynth, punchSound, mooSound, crashSound, runSynth, runNoise, hambaSound;
+
+        function init() {
+            // --- Scene and Camera ---
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87ceeb); // Sky blue
+            scene.fog = new THREE.Fog(0x87ceeb, 50, 200);
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 5, 10);
+            camera.lookAt(0, 2, 0);
+
+            // --- Renderer ---
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            document.body.appendChild(renderer.domElement);
+
+            // --- Lighting ---
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(-30, 50, -30);
+            dirLight.castShadow = true;
+            scene.add(dirLight);
+
+            // --- Audio Setup (Objects are created here, but volumes/start are deferred) ---
+            setupAudio();
+
+            // --- Create Game World ---
+            createRoad();
+            createCow();
+            createOwner();
+            createEnvironment();
+
+            // --- Event Listeners ---
+            window.addEventListener('resize', onWindowResize, false);
+            document.addEventListener('keydown', onKeyDown, false);
+            document.getElementById('punch-button').addEventListener('click', punch);
+            document.getElementById('restart-button').addEventListener('click', restartGame);
+            document.getElementById('start-button').addEventListener('click', startGame);
+            document.getElementById('gemini-report-button').addEventListener('click', getNewsReport);
+
+            // Touch controls
+            window.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; });
+            window.addEventListener('touchend', e => {
+                const touchEndX = e.changedTouches[0].clientX;
+                const deltaX = touchEndX - touchStartX;
+                if (Math.abs(deltaX) > 50) { // Swipe threshold
+                    if (deltaX > 0) changeLane(1); // Swipe Right
+                    else changeLane(-1); // Swipe Left
+                }
+            });
+
+            animate(); // Start the animation loop
+        }
+
+        /**
+         * Starts the game, hides the start screen, resets game state,
+         * and attempts to resume/start all audio elements.
+         * This function handles browser autoplay policies by ensuring audio
+         * is resumed within a user-initiated event.
+         */
+        function startGame() {
+            document.getElementById('start-screen').style.display = 'none';
+            resetGame(); // Reset game variables and positions
+            gameState = 'playing'; // Set game state to playing
+
+            // Attempt to resume audio context
+            // Modern browsers suspend AudioContext until a user gesture.
+            if (Tone.context.state !== 'running') {
+                Tone.context.resume().then(() => {
+                    console.log('AudioContext resumed successfully. State:', Tone.context.state);
+                    // ONLY after context is running, set volumes and start loops
+                    if (Tone.context.state === 'running') {
+                        // Set volumes for all audio nodes after context is running
+                        if (music) music.volume.value = -20;
+                        if (punchSound) punchSound.volume.value = -5;
+                        if (mooSound) mooSound.volume.value = -10;
+                        if (crashSound) crashSound.volume.value = -5;
+                        if (runNoise) runNoise.volume.value = -25;
+                        if (hambaSound) hambaSound.volume.value = -8; // Set volume for new hamba sound
+
+                        // Start loops that generate continuous sound
+                        if (music && music.state !== 'started') {
+                            music.start(0);
+                            console.log('Music started.');
+                        }
+                        if (runSynth && runSynth.state !== 'started') {
+                            runSynth.start(0);
+                            console.log('Run sound started.');
+                        }
+                    } else {
+                        console.warn('AudioContext state is not "running" after resume attempt. It might be suspended.');
+                    }
+                }).catch(e => {
+                    // Log and alert if audio context cannot be resumed
+                    console.error('Error resuming AudioContext:', e);
+                    alert('Could not start game audio. Please ensure your browser allows audio autoplay for this site, or try interacting with the page first.');
+                });
+            } else {
+                // If context is already running (e.g., after a restart or previous interaction),
+                // just set volumes and start music/run sounds directly.
+                console.log('AudioContext already running. State:', Tone.context.state);
+                // Set volumes
+                if (music) music.volume.value = -20;
+                if (punchSound) punchSound.volume.value = -5;
+                if (mooSound) mooSound.volume.value = -10;
+                if (crashSound) crashSound.volume.value = -5;
+                if (runNoise) runNoise.volume.value = -25;
+                if (hambaSound) hambaSound.volume.value = -8;
+
+                // Start loops
+                if (music && music.state !== 'started') {
+                    music.start(0);
+                    console.log('Music started.');
+                }
+                if (runSynth && runSynth.state !== 'started') {
+                    runSynth.start(0);
+                    console.log('Run sound started.');
+                }
+            }
+        }
+
+        /**
+         * Calls the Gemini API to get a text response.
+         * @param {string} prompt The prompt to send to the Gemini model.
+         * @returns {Promise<string>} A promise that resolves to the generated text.
+         */
+        async function callGemini(prompt) {
+            const apiKey = ""; // The environment will provide this API key
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+            const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!response.ok) throw new Error(`API call failed with status: ${response.status}`);
+                const result = await response.json();
+                if (result.candidates && result.candidates[0]?.content?.parts[0]?.text) {
+                    return result.candidates[0].content.parts[0].text;
+                } else {
+                    console.error("Unexpected API response structure:", result);
+                    return "The AI is speechless.";
+                }
+            } catch (error) {
+                console.error("Error calling Gemini API:", error);
+                return "The AI seems to be on a coffee break.";
+            }
+        }
+
+        /**
+         * Fetches a funny, cow-themed taunt from Gemini and displays it briefly.
+         */
+        async function getFunnyTaunt() {
+            const prompt = "You are an angry cow, running through a city. You just punched a human out of your way. Shout a short, funny, cow-themed taunt. Maximum 5 words.";
+            const taunt = await callGemini(prompt);
+            const tauntDisplay = document.getElementById('taunt-display');
+            tauntDisplay.innerText = taunt;
+            tauntDisplay.style.opacity = 1;
+            setTimeout(() => {
+                tauntDisplay.style.opacity = 0;
+            }, 3000);
+        }
+
+        /**
+         * Generates a news report about the game outcome using Gemini and displays it.
+         */
+        async function getNewsReport() {
+            const reportButton = document.getElementById('gemini-report-button');
+            const reportContent = document.getElementById('gemini-report-content');
+
+            reportButton.disabled = true; // Disable button during generation
+            reportButton.innerText = '✨ Generating Report...';
+            reportContent.style.display = 'none'; // Hide previous content
+
+            const prompt = `Write a short, funny, and slightly sensationalized news flash about a runaway cow. The cow ran for ${Math.floor(distance)} meters and punched ${score} people before finally being caught by its owner.`;
+            const report = await callGemini(prompt);
+
+            reportContent.innerText = report;
+            reportContent.style.display = 'block'; // Show generated report
+            reportButton.style.display = 'none'; // Hide button after report is shown
+        }
+
+        /**
+         * Sets up all Tone.js audio objects. Volumes and starting of loops
+         * are handled in startGame() after AudioContext is resumed.
+         */
+        function setupAudio() {
+            // Music Synth: Simple synth for background melody
+            musicSynth = new Tone.Synth().toDestination();
+
+            // Music Loop: Plays a simple two-note melody
+            music = new Tone.Loop(time => {
+                if (musicSynth && Tone.context.state === 'running') {
+                    musicSynth.triggerAttackRelease("C2", "8n", time);
+                    musicSynth.triggerAttackRelease("G2", "8n", time + Tone.Time("8n").toSeconds());
+                }
+            }, "4n");
+
+            // Punch Sound: Short, percussive sound for hitting obstacles
+            punchSound = new Tone.MembraneSynth({
+                pitchDecay: 0.05,
+                octaves: 10,
+                oscillator: { type: 'sine' },
+                envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1.4, attackCurve: 'exponential' }
+            }).toDestination();
+
+            // Moo Sound: A distinct cow sound
+            mooSound = new Tone.MonoSynth({
+                oscillator: { type: 'sawtooth' },
+                envelope: { attack: 0.1, decay: 0.3, sustain: 0.2, release: 1 },
+                filterEnvelope: { attack: 0.05, decay: 0.1, sustain: 0.5, release: 2, baseFrequency: 80, octaves: 3 }
+            }).toDestination();
+
+            // Crash Sound: White noise burst for collisions
+            crashSound = new Tone.NoiseSynth({
+                noise: { type: 'white' },
+                envelope: { attack: 0.005, decay: 0.2, sustain: 0 }
+            }).toDestination();
+
+            // Running Noise: Pink noise for continuous footstep-like sound
+            runNoise = new Tone.NoiseSynth({
+                noise: { type: 'pink' },
+                envelope: { attack: 0.001, decay: 0.05, sustain: 0 }
+            }).toDestination();
+
+            // Running Loop: Triggers runNoise repeatedly for a running effect
+            runSynth = new Tone.Loop(time => {
+                if (runNoise && Tone.context.state === 'running') {
+                    runNoise.triggerAttackRelease("16n", time);
+                }
+            }, "8n");
+
+            // Hamba Sound: A deeper, percussive thud for punching humans (new)
+            hambaSound = new Tone.Synth({
+                oscillator: { type: 'sine' },
+                envelope: { attack: 0.01, decay: 0.2, sustain: 0, release: 0.3 }
+            }).toDestination();
+        }
+
+        /**
+         * Creates the cow character with more detailed geometries.
+         */
+        function createCow() {
+            const cowGroup = new THREE.Group();
+
+            // Body (more defined)
+            const bodyGeo = new THREE.BoxGeometry(2.5, 2, 4); // Slightly larger body
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x8B4513, flatShading: true }); // Saddle Brown
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            body.castShadow = true;
+            cowGroup.add(body);
+
+            // Head with snout
+            const headGeo = new THREE.BoxGeometry(1.5, 1.5, 2);
+            const head = new THREE.Mesh(headGeo, bodyMat);
+            head.position.set(0, 0.5, -2.5); // Position in front of body
+            head.castShadow = true;
+            cowGroup.add(head);
+
+            const snoutGeo = new THREE.BoxGeometry(0.8, 0.8, 1);
+            const snoutMat = new THREE.MeshStandardMaterial({ color: 0xD2B48C, flatShading: true }); // Tan for snout
+            const snout = new THREE.Mesh(snoutGeo, snoutMat);
+            snout.position.set(0, 0.2, -3.2);
+            snout.castShadow = true;
+            cowGroup.add(snout);
+
+            // Horns
+            const hornGeo = new THREE.CylinderGeometry(0.15, 0.05, 0.8, 8);
+            const hornMat = new THREE.MeshStandardMaterial({ color: 0xFFF8DC, flatShading: true }); // Cornsilk for horns
+            const horn1 = new THREE.Mesh(hornGeo, hornMat);
+            horn1.position.set(-0.7, 1.2, -2.7);
+            horn1.rotation.z = Math.PI / 4;
+            horn1.castShadow = true;
+            cowGroup.add(horn1);
+
+            const horn2 = new THREE.Mesh(hornGeo, hornMat);
+            horn2.position.set(0.7, 1.2, -2.7);
+            horn2.rotation.z = -Math.PI / 4;
+            horn2.castShadow = true;
+            cowGroup.add(horn2);
+
+            // Ears
+            const earGeo = new THREE.BoxGeometry(0.5, 0.2, 0.8);
+            const earMat = new THREE.MeshStandardMaterial({ color: 0xA0522D, flatShading: true }); // Sienna
+            const ear1 = new THREE.Mesh(earGeo, earMat);
+            ear1.position.set(-1.1, 0.7, -2.7);
+            ear1.rotation.y = -Math.PI / 8;
+            ear1.castShadow = true;
+            cowGroup.add(ear1);
+
+            const ear2 = new THREE.Mesh(earGeo, earMat);
+            ear2.position.set(1.1, 0.7, -2.7);
+            ear2.rotation.y = Math.PI / 8;
+            ear2.castShadow = true;
+            cowGroup.add(ear2);
+
+            // Legs (more robust cylinders)
+            const legGeo = new THREE.CylinderGeometry(0.4, 0.4, 1.5, 8);
+            const legMat = new THREE.MeshStandardMaterial({ color: 0x654321, flatShading: true }); // Darker brown for legs
+            const legOffset = 0.8;
+            const legZOffset = 1.2;
+
+            function addLeg(x, z) {
+                const leg = new THREE.Mesh(legGeo, legMat);
+                leg.position.set(x, -0.75, z); // Position below body
+                leg.castShadow = true;
+                cowGroup.add(leg);
+            }
+            addLeg(-legOffset, legZOffset);
+            addLeg(legOffset, legZOffset);
+            addLeg(-legOffset, -legZOffset);
+            addLeg(legOffset, -legZOffset);
+
+            // Tail
+            const tailGeo = new THREE.CylinderGeometry(0.1, 0.05, 1.5, 8);
+            const tailMat = new THREE.MeshStandardMaterial({ color: 0x654321, flatShading: true });
+            const tail = new THREE.Mesh(tailGeo, tailMat);
+            tail.position.set(0, 0.5, 2);
+            tail.rotation.x = Math.PI / 2; // Point backwards
+            tail.castShadow = true;
+            cowGroup.add(tail);
+
+            cow = cowGroup;
+            cow.position.set(lanes[currentLane], 1.5, 0);
+            scene.add(cow);
+        }
+
+        /**
+         * Creates the farmer/owner character with more detailed geometries.
+         */
+        function createOwner() {
+            const ownerGroup = new THREE.Group();
+
+            // Body
+            const bodyGeo = new THREE.BoxGeometry(1.2, 2.5, 1); // Slightly taller
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x228B22, flatShading: true }); // Forest Green shirt
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            body.castShadow = true;
+            ownerGroup.add(body);
+
+            // Head
+            const headGeo = new THREE.SphereGeometry(0.6, 16, 16); // Slightly larger head
+            const headMat = new THREE.MeshStandardMaterial({ color: 0xffdbac, flatShading: true }); // Skin tone
+            const head = new THREE.Mesh(headGeo, headMat);
+            head.position.y = 1.8;
+            head.castShadow = true;
+            ownerGroup.add(head);
+
+            // Legs
+            const legGeo = new THREE.BoxGeometry(0.5, 1.5, 0.5);
+            const legMat = new THREE.MeshStandardMaterial({ color: 0x4169E1, flatShading: true }); // Royal Blue pants
+            const leg1 = new THREE.Mesh(legGeo, legMat);
+            leg1.position.set(-0.3, -1.25, 0);
+            leg1.castShadow = true;
+            ownerGroup.add(leg1);
+            const leg2 = new THREE.Mesh(legGeo, legMat);
+            leg2.position.set(0.3, -1.25, 0);
+            leg2.castShadow = true;
+            ownerGroup.add(leg2);
+
+            // Arms
+            const armGeo = new THREE.BoxGeometry(0.4, 1.2, 0.4);
+            const armMat = new THREE.MeshStandardMaterial({ color: 0x228B22, flatShading: true }); // Green shirt color
+            const arm1 = new THREE.Mesh(armGeo, armMat);
+            arm1.position.set(-0.8, 0.5, 0);
+            arm1.rotation.z = Math.PI / 8;
+            arm1.castShadow = true;
+            ownerGroup.add(arm1);
+            const arm2 = new THREE.Mesh(armGeo, armMat);
+            arm2.position.set(0.8, 0.5, 0);
+            arm2.rotation.z = -Math.PI / 8;
+            arm2.castShadow = true;
+            ownerGroup.add(arm2);
+
+            owner = ownerGroup;
+            owner.position.set(0, 1.5, ownerBaseDistance);
+            scene.add(owner);
+        }
+
+        /**
+         * Creates the road, adding more details like varied building styles and roadside elements.
+         */
+        function createRoad() {
+            const roadGeo = new THREE.PlaneGeometry(12, 400);
+            const roadMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.7 }); // Darker, slightly rougher road
+            road = new THREE.Mesh(roadGeo, roadMat);
+            road.rotation.x = -Math.PI / 2;
+            road.receiveShadow = true;
+            scene.add(road);
+
+            // Road Lines
+            const lineMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            for (let i = 0; i < 40; i++) { // More lines for denser pattern
+                const lineGeo = new THREE.PlaneGeometry(0.2, 3); // Shorter lines
+                [-1.5, 1.5].forEach(x => {
+                    const line = new THREE.Mesh(lineGeo, lineMat);
+                    line.position.set(x, 0.01, -i * 5); // Denser spacing
+                    line.rotation.x = -Math.PI / 2;
+                    scene.add(line);
+                    roadLines.push(line);
+                });
+            }
+        }
+
+        /**
+         * Creates background buildings and other environmental elements.
+         */
+        function createEnvironment() {
+            const buildingColors = [0x708090, 0x5F9EA0, 0xB0C4DE, 0x8FBC8F, 0x6A5ACD]; // Varied muted colors
+            const windowMat = new THREE.MeshStandardMaterial({ color: 0x000000, metalness: 0.2, roughness: 0.3 }); // Dark windows
+
+            for(let i = 0; i < 40; i++) { // More buildings for a denser city feel
+                [-15, 15].forEach(x => {
+                    const height = Math.random() * 30 + 15; // Vary height more
+                    const depth = Math.random() * 8 + 5; // Vary building depth
+                    const width = Math.random() * 10 + 8; // Vary building width
+                    const buildingGeo = new THREE.BoxGeometry(width, height, depth);
+                    const buildingMat = new THREE.MeshStandardMaterial({ color: buildingColors[Math.floor(Math.random() * buildingColors.length)], roughness: 0.8 });
+                    const building = new THREE.Mesh(buildingGeo, buildingMat);
+                    building.position.set(x, height / 2, -i * 15 - Math.random() * 10); // Adjust Z spacing and add randomness
+                    building.castShadow = true;
+                    scene.add(building);
+                    buildings.push(building);
+
+                    // Add simple windows
+                    const numWindowsX = Math.floor(width / 3);
+                    const numWindowsY = Math.floor(height / 5);
+                    const windowGeo = new THREE.BoxGeometry(0.8, 1.5, 0.1);
+                    for (let wx = 0; wx < numWindowsX; wx++) {
+                        for (let wy = 0; wy < numWindowsY; wy++) {
+                            const windowMesh = new THREE.Mesh(windowGeo, windowMat);
+                            windowMesh.position.set(
+                                building.position.x + (wx - numWindowsX / 2 + 0.5) * (width / numWindowsX),
+                                building.position.y + (wy - numWindowsY / 2 + 0.5) * (height / numWindowsY),
+                                building.position.z + depth / 2 + 0.1 // Place on the front face
+                            );
+                            windowMesh.castShadow = true;
+                            scene.add(windowMesh);
+                        }
+                    }
+                });
+            }
+
+            // Simple trees (cylinders for trunk, spheres for leaves)
+            const treeTrunkMat = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+            const treeLeafMat = new THREE.MeshStandardMaterial({ color: 0x228B22 });
+            for(let i = 0; i < 20; i++) {
+                [-6, 6].forEach(x => { // Slightly off-road
+                    const trunkHeight = Math.random() * 3 + 2;
+                    const trunkGeo = new THREE.CylinderGeometry(0.3, 0.4, trunkHeight, 8);
+                    const trunk = new THREE.Mesh(trunkGeo, treeTrunkMat);
+                    trunk.position.set(x + (Math.random() - 0.5) * 1, trunkHeight / 2, -i * 20 - Math.random() * 10);
+                    trunk.castShadow = true;
+                    scene.add(trunk);
+
+                    const leafRadius = Math.random() * 1.5 + 1;
+                    const leavesGeo = new THREE.SphereGeometry(leafRadius, 16, 16);
+                    const leaves = new THREE.Mesh(leavesGeo, treeLeafMat);
+                    leaves.position.set(trunk.position.x, trunkHeight + leafRadius * 0.7, trunk.position.z);
+                    leaves.castShadow = true;
+                    scene.add(leaves);
+                });
+            }
+        }
+
+
+        /**
+         * Spawns obstacles (cars, motorcycles, humans) in random lanes.
+         * Obstacles are now more detailed.
+         */
+        function spawnObstacle() {
+            if (Math.random() < 0.02 && gameState === 'playing') {
+                const type = Math.random() > 0.3 ? (Math.random() > 0.5 ? 'car' : 'motorcycle') : 'human';
+                const lane = Math.floor(Math.random() * 3);
+                let obstacleMesh, yPos;
+                const obstacleGroup = new THREE.Group();
+
+                if (type === 'car') {
+                    const carBodyMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(Math.random(), Math.random(), Math.random()), flatShading: true });
+                    const bodyGeo = new THREE.BoxGeometry(2.5, 1.5, 5); // Main car body
+                    const carBody = new THREE.Mesh(bodyGeo, carBodyMat);
+                    carBody.castShadow = true;
+                    obstacleGroup.add(carBody);
+
+                    const cabinGeo = new THREE.BoxGeometry(2, 1, 3);
+                    const cabinMat = new THREE.MeshStandardMaterial({ color: carBodyMat.color.clone().multiplyScalar(0.7), flatShading: true }); // Slightly darker for cabin
+                    const carCabin = new THREE.Mesh(cabinGeo, cabinMat);
+                    carCabin.position.y = 1;
+                    carCabin.position.z = -0.5;
+                    carCabin.castShadow = true;
+                    obstacleGroup.add(carCabin);
+
+                    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9, metalness: 0.1 });
+                    const wheelGeo = new THREE.CylinderGeometry(0.7, 0.7, 0.5, 10);
+                    function addWheel(x, y, z) {
+                        const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+                        wheel.position.set(x, y, z);
+                        wheel.rotation.x = Math.PI / 2; // Make cylinder flat on ground
+                        wheel.castShadow = true;
+                        obstacleGroup.add(wheel);
+                    }
+                    addWheel(1.2, -0.7, 1.5);
+                    addWheel(-1.2, -0.7, 1.5);
+                    addWheel(1.2, -0.7, -1.5);
+                    addWheel(-1.2, -0.7, -1.5);
+
+                    obstacleMesh = obstacleGroup;
+                    yPos = 1; // Base position for car
+                } else if (type === 'motorcycle') {
+                    const bikeMat = new THREE.MeshStandardMaterial({ color: 0x555555, flatShading: true });
+                    const bodyGeo = new THREE.BoxGeometry(0.5, 0.8, 2.5);
+                    const bikeBody = new THREE.Mesh(bodyGeo, bikeMat);
+                    bikeBody.castShadow = true;
+                    obstacleGroup.add(bikeBody);
+
+                    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 0.9, metalness: 0.1 });
+                    const wheelGeo = new THREE.TorusGeometry(0.6, 0.15, 8, 20); // Torus for wheels
+                    const frontWheel = new THREE.Mesh(wheelGeo, wheelMat);
+                    frontWheel.position.z = -1;
+                    frontWheel.rotation.y = Math.PI / 2;
+                    frontWheel.castShadow = true;
+                    obstacleGroup.add(frontWheel);
+
+                    const backWheel = new THREE.Mesh(wheelGeo, wheelMat);
+                    backWheel.position.z = 1;
+                    backWheel.rotation.y = Math.PI / 2;
+                    backWheel.castShadow = true;
+                    obstacleGroup.add(backWheel);
+
+                    const seatGeo = new THREE.BoxGeometry(0.6, 0.3, 1);
+                    const seatMat = new THREE.MeshStandardMaterial({ color: 0x333333, flatShading: true });
+                    const seat = new THREE.Mesh(seatGeo, seatMat);
+                    seat.position.y = 0.5;
+                    seat.position.z = 0.5;
+                    seat.castShadow = true;
+                    obstacleGroup.add(seat);
+
+                    obstacleMesh = obstacleGroup;
+                    yPos = 0.75; // Base position for motorcycle
+                } else { // Human
+                    const skinMat = new THREE.MeshStandardMaterial({ color: 0xffdbac, flatShading: true });
+                    const shirtMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(Math.random(), Math.random(), Math.random()), flatShading: true });
+                    const pantsMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(Math.random(), Math.random(), Math.random()), flatShading: true });
+
+                    // Head
+                    const head = new THREE.Mesh(new THREE.SphereGeometry(0.4, 12, 12), skinMat);
+                    head.position.y = 1.3;
+                    head.castShadow = true;
+                    obstacleGroup.add(head);
+
+                    // Body
+                    const body = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1, 0.4), shirtMat);
+                    body.position.y = 0.6;
+                    body.castShadow = true;
+                    obstacleGroup.add(body);
+
+                    // Arms
+                    const armGeo = new THREE.BoxGeometry(0.2, 0.8, 0.2);
+                    const arm1 = new THREE.Mesh(armGeo, shirtMat);
+                    arm1.position.set(-0.5, 0.6, 0);
+                    arm1.castShadow = true;
+                    obstacleGroup.add(arm1);
+                    const arm2 = new THREE.Mesh(armGeo, shirtMat);
+                    arm2.position.set(0.5, 0.6, 0);
+                    arm2.castShadow = true;
+                    obstacleGroup.add(arm2);
+
+                    // Legs
+                    const legGeo = new THREE.BoxGeometry(0.3, 0.9, 0.3);
+                    const leg1 = new THREE.Mesh(legGeo, pantsMat);
+                    leg1.position.set(-0.25, -0.2, 0);
+                    leg1.castShadow = true;
+                    obstacleGroup.add(leg1);
+                    const leg2 = new THREE.Mesh(legGeo, pantsMat);
+                    leg2.position.set(0.25, -0.2, 0);
+                    leg2.castShadow = true;
+                    obstacleGroup.add(leg2);
+
+                    obstacleMesh = obstacleGroup;
+                    yPos = 1; // Base position for human
+                }
+
+                obstacleMesh.position.set(lanes[lane], yPos, -200);
+                scene.add(obstacleMesh);
+                obstacles.push({ mesh: obstacleMesh, type: type, punched: false });
+            }
+        }
+
+        /**
+         * Updates game state, moves objects, checks for collisions.
+         */
+        function update() {
+             if (gameState !== 'playing') return;
+            baseSpeed += 0.0001; // Gradually increase speed
+            const effectiveSpeed = currentSpeed;
+            distance += effectiveSpeed;
+
+            // Move road lines and buildings, recycling them when they go out of view
+            roadLines.forEach(l => { l.position.z += effectiveSpeed; if (l.position.z > 10) l.position.z -= 200; });
+            buildings.forEach(b => { b.position.z += effectiveSpeed; if(b.position.z > camera.position.z + 50) b.position.z -= 600; }); // Adjust Z recycling for buildings
+
+            // Simple bobbing animation for cow and owner
+            cow.position.y = 1.5 + Math.sin(Date.now() * 0.02) * 0.1;
+            owner.position.set(cow.position.x, 1.5 + Math.sin(Date.now() * 0.02 + Math.PI) * 0.1, cow.position.z + ownerCurrentDistance);
+
+            // Handle slowdown state (after hitting car/motorcycle)
+            if (slowdownTimer > 0) {
+                slowdownTimer--;
+                currentSpeed = baseSpeed * 0.5; // Half speed during slowdown
+                ownerCurrentDistance = Math.max(2, ownerCurrentDistance - 0.05); // Owner gains distance
+            } else {
+                currentSpeed = baseSpeed;
+                if(ownerCurrentDistance < ownerBaseDistance) ownerCurrentDistance += 0.02; // Owner falls back
+            }
+
+            // Game over condition: owner catches the cow
+            if (ownerCurrentDistance <= 1.8) gameOver();
+
+            // Collision detection with obstacles
+            const cowBox = new THREE.Box3().setFromObject(cow); // Bounding box for cow
+            obstacles.forEach((obs, index) => {
+                obs.mesh.position.z += effectiveSpeed;
+                // Remove obstacles that are off-screen
+                if (obs.mesh.position.z > camera.position.z + 10) {
+                    scene.remove(obs.mesh);
+                    obstacles.splice(index, 1);
+                } else {
+                    // If obstacle was punched, make it fly off
+                    if (obs.punched) {
+                        obs.mesh.position.y += 0.5; // Fly up
+                        obs.mesh.rotation.x += 0.1; // Spin
+                        obs.mesh.rotation.z += 0.1; // Spin
+                        return; // Skip collision detection for punched obstacles
+                    }
+                    // Check for collision with cow
+                    if (cowBox.intersectsBox(new THREE.Box3().setFromObject(obs.mesh))) {
+                        handleCollision(obs);
+                    }
+                }
+            });
+            spawnObstacle(); // Attempt to spawn new obstacles
+            document.getElementById('score').innerText = `Score: ${score}`;
+            document.getElementById('distance').innerText = `Distance: ${Math.floor(distance)}m`;
+        }
+
+        /**
+         * Handles collision logic based on obstacle type.
+         * @param {object} obs The obstacle object involved in the collision.
+         */
+        function handleCollision(obs) {
+            if (obs.type === 'car' || obs.type === 'motorcycle') {
+                if (crashSound && Tone.context.state === 'running') crashSound.triggerAttackRelease("8n"); // Play crash sound
+                createParticles(cow.position, 0xffff00, 30); // Yellow particles for impact
+                if (slowdownTimer > 0) gameOver(); // If already slowed, game over
+                else slowdownTimer = slowdownDuration; // Otherwise, apply slowdown
+            }
+        }
+
+        /**
+         * Handles the cow's punch action. Checks for nearby humans and scores points.
+         */
+        function punch() {
+            if (gameState !== 'playing') return; // Only allow punching during gameplay
+
+            // Play punch and moo sounds
+            if (punchSound && Tone.context.state === 'running') punchSound.triggerAttackRelease("C2", "8n");
+            if (mooSound && Tone.context.state === 'running') mooSound.triggerAttackRelease("A1", "1n");
+            if (hambaSound && Tone.context.state === 'running') hambaSound.triggerAttackRelease("F1", "0.2"); // Play new hamba sound
+
+            // Define a "punching zone" in front of the cow
+            const cowPunchBox = new THREE.Box3().setFromCenterAndSize( new THREE.Vector3(cow.position.x, cow.position.y, cow.position.z - 2), new THREE.Vector3(3, 3, 4) );
+            obstacles.forEach(obs => {
+                // Check if it's a human, not already punched, and within punch zone
+                if(obs.type === 'human' && !obs.punched && cowPunchBox.intersectsBox(new THREE.Box3().setFromObject(obs.mesh))) {
+                    score++; // Increment score
+                    obs.punched = true; // Mark human as punched
+                    if (Math.random() < 0.33) getFunnyTaunt(); // 33% chance for AI taunt
+                    createParticles(obs.mesh.position, 0xff0000, 50); // Red particles for human impact
+                }
+            });
+        }
+
+        /**
+         * Creates a burst of particles at a given position.
+         * @param {THREE.Vector3} position The starting position for particles.
+         * @param {number} color The hexadecimal color of the particles.
+         * @param {number} count The number of particles to create.
+         */
+        function createParticles(position, color, count) {
+            const particleGeo = new THREE.BufferGeometry();
+            const vertices = [];
+            for (let i = 0; i < count; i++) vertices.push(position.x, position.y, position.z);
+            particleGeo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            const particleMat = new THREE.PointsMaterial({ color, size: 0.3, transparent: true });
+            const particles = new THREE.Points(particleGeo, particleMat);
+            // Assign random initial velocities for particle spread
+            particles.velocities = Array.from({length: count * 3}, () => (Math.random() - 0.5) * 0.5);
+            scene.add(particles);
+
+            let life = 60; // Particle lifespan (frames)
+            function animateParticles() {
+                if(--life <= 0) { // If life is over, remove particles
+                    scene.remove(particles);
+                    return;
+                }
+                const positions = particles.geometry.attributes.position.array;
+                for(let i=0; i<count*3; i++) positions[i] += particles.velocities[i]; // Move particles based on velocity
+                particles.geometry.attributes.position.needsUpdate = true; // Update GPU buffer
+                particles.material.opacity = life / 60; // Fade out particles
+                requestAnimationFrame(animateParticles); // Continue animation
+            }
+            animateParticles();
+        }
+
+        /**
+         * Handles keyboard input for lane changes and punching.
+         * @param {KeyboardEvent} event The keyboard event.
+         */
+        function onKeyDown(event) {
+            if (gameState !== 'playing') return;
+            if (event.keyCode === 37) changeLane(-1); // Left arrow
+            else if (event.keyCode === 39) changeLane(1); // Right arrow
+            else if (event.keyCode === 32) punch(); // Spacebar for punch
+        }
+
+        /**
+         * Changes the cow's current lane.
+         * @param {number} direction -1 for left, 1 for right.
+         */
+        function changeLane(direction) {
+            currentLane = Math.max(0, Math.min(2, currentLane + direction));
+        }
+
+        /**
+         * Ends the game and displays the game over screen.
+         */
+        function gameOver() {
+            if(gameState === 'gameOver') return; // Prevent multiple game over calls
+            gameState = 'gameOver';
+            // Stop all continuous sounds
+            if (music) music.stop();
+            if (runSynth) runSynth.stop();
+            if (crashSound && Tone.context.state === 'running') crashSound.triggerAttackRelease("2n"); // Play final crash sound
+            document.getElementById('final-score').innerText = `Your Score: ${score}`;
+            document.getElementById('game-over-screen').style.display = 'flex'; // Show game over screen
+
+            let zoomOutTime = 0;
+            // Simple camera animation for game over
+            function animateZoomOut() {
+                if (++zoomOutTime > 120) return; // Stop after 2 seconds
+                camera.position.z += 0.1;
+                camera.position.y += 0.05;
+                camera.lookAt(cow.position);
+                requestAnimationFrame(animateZoomOut);
+            }
+            animateZoomOut();
+        }
+
+        /**
+         * Resets all game variables and object positions for a new game.
+         */
+        function resetGame() {
+            score = 0;
+            distance = 0;
+            baseSpeed = 0.5;
+            slowdownTimer = 0;
+            ownerCurrentDistance = ownerBaseDistance;
+            currentLane = 1;
+            currentSpeed = baseSpeed;
+
+            // Reset cow position
+            cow.position.set(lanes[currentLane], 1.5, 0);
+
+            // Remove all existing obstacles from scene and array
+            obstacles.forEach(obs => scene.remove(obs.mesh));
+            obstacles = [];
+
+            // Hide game over screen
+            document.getElementById('game-over-screen').style.display = 'none';
+
+            // Reset Gemini report button state
+            const reportButton = document.getElementById('gemini-report-button');
+            reportButton.style.display = 'block';
+            reportButton.disabled = false;
+            reportButton.innerText = '✨ Get News Report';
+            document.getElementById('gemini-report-content').style.display = 'none';
+
+            // Reset camera position
+            camera.position.set(0, 5, 10);
+            camera.lookAt(0, 2, 0);
+        }
+
+        /**
+         * Restarts the game from the beginning.
+         */
+        function restartGame() {
+            resetGame();
+            startGame();
+        }
+
+        /**
+         * Adjusts camera aspect ratio and renderer size on window resize.
+         */
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        /**
+         * Main animation loop.
+         */
+        function animate() {
+            requestAnimationFrame(animate); // Request next frame
+            if (gameState === 'playing') {
+                // Smoothly move cow to target lane
+                cow.position.x += (lanes[currentLane] - cow.position.x) * 0.1;
+                // Add minor "dust" particles behind cow to simulate movement
+                if(Math.random() > 0.5) createParticles(new THREE.Vector3(cow.position.x, 0, cow.position.z + 1.5), 0x8B4513, 2);
+            }
+            update(); // Update game logic
+            renderer.render(scene, camera); // Render the scene
+        }
+
+        init(); // Initialize the game on page load
+    </script>
+</body>
+</html>
