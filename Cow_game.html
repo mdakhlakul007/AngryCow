@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Angry Cow Run</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Arial', sans-serif;
+            color: white;
+        }
+        canvas {
+            display: block;
+        }
+        #ui-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+        }
+        #top-ui {
+            width: 100%;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: space-between;
+            text-shadow: 2px 2px 4px #000;
+            font-size: 1.5em;
+        }
+        #taunt-display {
+            position: absolute;
+            top: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #ffc107;
+            text-shadow: 3px 3px 6px #000;
+            padding: 10px 20px;
+            background-color: rgba(0,0,0,0.5);
+            border-radius: 15px;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+            pointer-events: none;
+        }
+        #bottom-ui {
+            width: 100%;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #punch-button {
+            pointer-events: all;
+            padding: 20px 40px;
+            font-size: 1.5em;
+            font-weight: bold;
+            color: white;
+            background: linear-gradient(145deg, #ff4b2b, #ff416c);
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2), 0 6px 6px rgba(0,0,0,0.2);
+            transition: transform 0.1s ease, box-shadow 0.1s ease;
+        }
+        #punch-button:active {
+            transform: scale(0.95);
+            box-shadow: 0 5px 10px rgba(0,0,0,0.2), 0 3px 3px rgba(0,0,0,0.2);
+        }
+        #game-over-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            pointer-events: all;
+        }
+        #game-over-screen h1 {
+            font-size: 4em;
+            color: #ff4b2b;
+            text-shadow: 3px 3px 6px #000;
+        }
+        #game-over-screen p {
+            font-size: 1.8em;
+        }
+        #gemini-report-container {
+            margin: 20px;
+            padding: 15px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            width: 80%;
+            max-width: 600px;
+        }
+        #gemini-report-button {
+            padding: 10px 20px;
+            font-size: 1.2em;
+            cursor: pointer;
+            border-radius: 8px;
+            border: none;
+            background-color: #ffc107;
+            color: black;
+            font-weight: bold;
+        }
+         #gemini-report-button:disabled {
+            background-color: #555;
+            cursor: not-allowed;
+        }
+        #gemini-report-content {
+            font-size: 1.1em;
+            margin-top: 15px;
+            text-align: left;
+            line-height: 1.5;
+        }
+        #restart-button {
+            margin-top: 10px;
+            padding: 15px 30px;
+            font-size: 1.5em;
+            cursor: pointer;
+            border-radius: 10px;
+            border: 2px solid white;
+            background-color: transparent;
+            color: white;
+            transition: background-color 0.2s, color 0.2s;
+        }
+        #restart-button:hover {
+            background-color: white;
+            color: black;
+        }
+         #start-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            pointer-events: all;
+            z-index: 100;
+        }
+        #start-screen h1 {
+            font-size: 3em;
+            color: #ffc107;
+        }
+        #start-screen p {
+            font-size: 1.2em;
+            max-width: 80%;
+            margin: 20px 0;
+        }
+        #start-button {
+            padding: 20px 40px;
+            font-size: 1.8em;
+            font-weight: bold;
+            color: black;
+            background: linear-gradient(145deg, #ffc107, #ff9800);
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            transition: transform 0.1s ease;
+        }
+        #start-button:active {
+            transform: scale(0.95);
+        }
+    </style>
+</head>
+<body>
+    <div id="ui-container">
+        <div id="top-ui">
+            <div id="score">Score: 0</div>
+            <div id="distance">Distance: 0m</div>
+        </div>
+        <div id="taunt-display"></div>
+        <div id="bottom-ui">
+            <button id="punch-button">PUNCH</button>
+        </div>
+    </div>
+
+    <div id="game-over-screen">
+        <h1>CAUGHT!</h1>
+        <p id="final-score">Your Score: 0</p>
+        <div id="gemini-report-container">
+            <button id="gemini-report-button">✨ Get News Report</button>
+            <p id="gemini-report-content" style="display:none;"></p>
+        </div>
+        <button id="restart-button">Restart Game</button>
+    </div>
+
+    <div id="start-screen">
+        <h1>Angry Cow Run</h1>
+        <p>The farmer wants you back! Run as far as you can.<br>Use <b>Left/Right Arrow Keys</b> or <b>Swipe</b> to change lanes.<br>Hit the <b>PUNCH</b> button to shove humans and score points.<br>Avoid cars and motorcycles, or you'll slow down and get caught!</p>
+        <button id="start-button">START RUNNING</button>
+    </div>
+
+    <script>
+        // --- Basic Setup ---
+        let scene, camera, renderer;
+        let gameState = 'start'; // 'start', 'playing', 'gameOver'
+
+        // --- Game Objects ---
+        let cow, owner;
+        let road, roadLines = [];
+        let buildings = [];
+        let obstacles = []; // { mesh, type: 'car' | 'motorcycle' | 'human' }
+        const lanes = [-3, 0, 3];
+        let currentLane = 1; // 0, 1, 2 for left, center, right
+
+        // --- Game Mechanics ---
+        let baseSpeed = 0.5;
+        let currentSpeed;
+        let distance = 0;
+        let score = 0;
+        let slowdownTimer = 0;
+        const slowdownDuration = 5 * 60; // 5 seconds at 60fps
+        const ownerBaseDistance = 10;
+        let ownerCurrentDistance;
+
+        // --- Controls ---
+        let touchStartX = 0;
+
+        // --- Audio ---
+        let music, musicSynth, punchSound, mooSound, crashSound, runSynth, runNoise; // Declare all audio variables globally
+
+        function init() {
+            // --- Scene and Camera ---
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87ceeb); // Sky blue
+            scene.fog = new THREE.Fog(0x87ceeb, 50, 200);
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 5, 10);
+            camera.lookAt(0, 2, 0);
+
+            // --- Renderer ---
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            document.body.appendChild(renderer.domElement);
+
+            // --- Lighting ---
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(-30, 50, -30);
+            dirLight.castShadow = true;
+            scene.add(dirLight);
+
+            // --- Audio Setup (Objects are created here, but volumes/start are deferred) ---
+            setupAudio();
+
+            // --- Create Game World ---
+            createRoad();
+            createCow();
+            createOwner();
+            createEnvironment();
+
+            // --- Event Listeners ---
+            window.addEventListener('resize', onWindowResize, false);
+            document.addEventListener('keydown', onKeyDown, false);
+            document.getElementById('punch-button').addEventListener('click', punch);
+            document.getElementById('restart-button').addEventListener('click', restartGame);
+            document.getElementById('start-button').addEventListener('click', startGame);
+            document.getElementById('gemini-report-button').addEventListener('click', getNewsReport);
+
+            // Touch controls
+            window.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; });
+            window.addEventListener('touchend', e => {
+                const touchEndX = e.changedTouches[0].clientX;
+                const deltaX = touchEndX - touchStartX;
+                if (Math.abs(deltaX) > 50) { // Swipe threshold
+                    if (deltaX > 0) changeLane(1); // Swipe Right
+                    else changeLane(-1); // Swipe Left
+                }
+            });
+
+            animate();
+        }
+
+        function startGame() {
+            document.getElementById('start-screen').style.display = 'none';
+            resetGame();
+            gameState = 'playing';
+
+            // Attempt to resume audio context
+            if (Tone.context.state !== 'running') {
+                Tone.context.resume().then(() => {
+                    console.log('AudioContext resumed successfully. State:', Tone.context.state);
+                    // ONLY after context is running, set volumes and start loops
+                    if (Tone.context.state === 'running') {
+                        // Set volumes AFTER context is running
+                        if (music) music.volume.value = -20;
+                        if (punchSound) punchSound.volume.value = -5;
+                        if (mooSound) mooSound.volume.value = -10;
+                        if (crashSound) crashSound.volume.value = -5;
+                        if (runNoise) runNoise.volume.value = -25; // Set volume for runNoise
+
+                        // Start loops
+                        if (music && music.state !== 'started') {
+                            music.start(0);
+                            console.log('Music started.');
+                        }
+                        if (runSynth && runSynth.state !== 'started') {
+                            runSynth.start(0);
+                            console.log('Run sound started.');
+                        }
+                    } else {
+                        console.warn('AudioContext state is not "running" after resume attempt. It might be suspended.');
+                    }
+                }).catch(e => {
+                    console.error('Error resuming AudioContext:', e);
+                    alert('Could not start game audio. Please ensure your browser allows audio autoplay for this site, or try interacting with the page first.');
+                });
+            } else {
+                // If context is already running (e.g., after a restart), just set volumes and start music
+                console.log('AudioContext already running. State:', Tone.context.state);
+                // Set volumes
+                if (music) music.volume.value = -20;
+                if (punchSound) punchSound.volume.value = -5;
+                if (mooSound) mooSound.volume.value = -10;
+                if (crashSound) crashSound.volume.value = -5;
+                if (runNoise) runNoise.volume.value = -25;
+
+                // Start loops
+                if (music && music.state !== 'started') {
+                    music.start(0);
+                    console.log('Music started.');
+                }
+                if (runSynth && runSynth.state !== 'started') {
+                    runSynth.start(0);
+                    console.log('Run sound started.');
+                }
+            }
+        }
+
+        // --- Gemini API Integration ---
+        async function callGemini(prompt) {
+            const apiKey = ""; // The environment will provide this
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+            const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!response.ok) throw new Error(`API call failed with status: ${response.status}`);
+                const result = await response.json();
+                if (result.candidates && result.candidates[0]?.content?.parts[0]?.text) {
+                    return result.candidates[0].content.parts[0].text;
+                } else {
+                    console.error("Unexpected API response structure:", result);
+                    return "The AI is speechless.";
+                }
+            } catch (error) {
+                console.error("Error calling Gemini API:", error);
+                return "The AI seems to be on a coffee break.";
+            }
+        }
+
+        async function getFunnyTaunt() {
+            const prompt = "You are an angry cow, running through a city. You just punched a human out of your way. Shout a short, funny, cow-themed taunt. Maximum 5 words.";
+            const taunt = await callGemini(prompt);
+            const tauntDisplay = document.getElementById('taunt-display');
+            tauntDisplay.innerText = taunt;
+            tauntDisplay.style.opacity = 1;
+            setTimeout(() => {
+                tauntDisplay.style.opacity = 0;
+            }, 3000);
+        }
+
+        async function getNewsReport() {
+            const reportButton = document.getElementById('gemini-report-button');
+            const reportContent = document.getElementById('gemini-report-content');
+
+            reportButton.disabled = true;
+            reportButton.innerText = '✨ Generating Report...';
+            reportContent.style.display = 'none';
+
+            const prompt = `Write a short, funny, and slightly sensationalized news flash about a runaway cow. The cow ran for ${Math.floor(distance)} meters and punched ${score} people before finally being caught by its owner.`;
+            const report = await callGemini(prompt);
+
+            reportContent.innerText = report;
+            reportContent.style.display = 'block';
+            reportButton.style.display = 'none';
+        }
+
+        function setupAudio() {
+            // Music: Create synth once for efficiency
+            musicSynth = new Tone.Synth().toDestination();
+
+            // Initialize music loop WITHOUT starting it or setting volume yet
+            music = new Tone.Loop(time => {
+                if (musicSynth && Tone.context.state === 'running') { // Added check for safety
+                    musicSynth.triggerAttackRelease("C2", "8n", time);
+                    musicSynth.triggerAttackRelease("G2", "8n", time + Tone.Time("8n").toSeconds());
+                }
+            }, "4n");
+            // music.volume.value is set in startGame()
+
+            // Punch Sound: Already robust, but ensure destination is set correctly
+            punchSound = new Tone.MembraneSynth({
+                pitchDecay: 0.05,
+                octaves: 10,
+                oscillator: { type: 'sine' },
+                envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1.4, attackCurve: 'exponential' }
+            }).toDestination();
+            // punchSound.volume.value is set in startGame()
+
+            // Moo Sound
+            mooSound = new Tone.MonoSynth({
+                oscillator: { type: 'sawtooth' },
+                envelope: { attack: 0.1, decay: 0.3, sustain: 0.2, release: 1 },
+                filterEnvelope: { attack: 0.05, decay: 0.1, sustain: 0.5, release: 2, baseFrequency: 80, octaves: 3 }
+            }).toDestination();
+            // mooSound.volume.value is set in startGame()
+
+            // Crash Sound
+            crashSound = new Tone.NoiseSynth({
+                noise: { type: 'white' },
+                envelope: { attack: 0.005, decay: 0.2, sustain: 0 }
+            }).toDestination();
+            // crashSound.volume.value is set in startGame()
+
+            // Running Sound: Declare runNoise globally as well if it's used elsewhere
+            runNoise = new Tone.NoiseSynth({ // Assign to global runNoise
+                noise: { type: 'pink' },
+                envelope: { attack: 0.001, decay: 0.05, sustain: 0 }
+            }).toDestination();
+            // runNoise.volume.value is set in startGame()
+
+            runSynth = new Tone.Loop(time => {
+                if (runNoise && Tone.context.state === 'running') { // Added check for safety
+                    runNoise.triggerAttackRelease("16n", time);
+                }
+            }, "8n");
+        }
+
+
+        function createCow() {
+            const cowGroup = new THREE.Group();
+            const bodyGeo = new THREE.BoxGeometry(2, 2, 3.5);
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x654321 }); // Basic brown, could be improved with textures
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            body.castShadow = true;
+            cowGroup.add(body);
+            const headGeo = new THREE.BoxGeometry(1.5, 1.5, 1.5);
+            const head = new THREE.Mesh(headGeo, bodyMat);
+            head.position.set(0, 0.5, -2.2);
+            cowGroup.add(head);
+            cow = cowGroup;
+            cow.position.set(lanes[currentLane], 1.5, 0);
+            scene.add(cow);
+        }
+
+        function createOwner() {
+            const ownerGroup = new THREE.Group();
+            const bodyGeo = new THREE.BoxGeometry(1, 2, 1);
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x0000ff }); // Basic blue
+            ownerGroup.add(new THREE.Mesh(bodyGeo, bodyMat));
+            const headGeo = new THREE.SphereGeometry(0.5, 16, 16);
+            const headMat = new THREE.MeshStandardMaterial({ color: 0xffdbac }); // Skin tone
+            const head = new THREE.Mesh(headGeo, headMat);
+            head.position.y = 1.5;
+            ownerGroup.add(head);
+            owner = ownerGroup;
+            owner.position.set(0, 1.5, ownerBaseDistance);
+            scene.add(owner);
+        }
+
+        function createRoad() {
+            const roadGeo = new THREE.PlaneGeometry(12, 400);
+            const roadMat = new THREE.MeshStandardMaterial({ color: 0x444444 }); // Dark gray
+            road = new THREE.Mesh(roadGeo, roadMat);
+            road.rotation.x = -Math.PI / 2;
+            road.receiveShadow = true;
+            scene.add(road);
+            const lineMat = new THREE.MeshBasicMaterial({ color: 0xffffff }); // White lines
+            for (let i = 0; i < 20; i++) {
+                const lineGeo = new THREE.PlaneGeometry(0.2, 5);
+                [-1.5, 1.5].forEach(x => {
+                    const line = new THREE.Mesh(lineGeo, lineMat);
+                    line.position.set(x, 0.01, -i * 10);
+                    line.rotation.x = -Math.PI / 2;
+                    scene.add(line);
+                    roadLines.push(line);
+                });
+            }
+        }
+
+        function createEnvironment() {
+            // A high-quality photo of a town road, capturing a realistic and vibrant street scene. Buildings of varying styles and sizes line both sides of the street, creating a sense of depth and character.
+            const buildingMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 0.8 }); // Gray buildings
+            for(let i = 0; i < 20; i++) {
+                [-15, 15].forEach(x => {
+                    const height = Math.random() * 40 + 10;
+                    const buildingGeo = new THREE.BoxGeometry(15, height, 15);
+                    const building = new THREE.Mesh(buildingGeo, buildingMat);
+                    building.position.set(x, height/2, -i * 30);
+                    building.castShadow = true;
+                    scene.add(building);
+                    buildings.push(building);
+                });
+            }
+        }
+
+        function spawnObstacle() {
+            if (Math.random() < 0.02 && gameState === 'playing') {
+                const type = Math.random() > 0.3 ? (Math.random() > 0.5 ? 'car' : 'motorcycle') : 'human';
+                const lane = Math.floor(Math.random() * 3);
+                let obstacleMesh, yPos;
+                if (type === 'car') {
+                    obstacleMesh = new THREE.Mesh(new THREE.BoxGeometry(2.5, 2, 5), new THREE.MeshStandardMaterial({ color: new THREE.Color(Math.random(), Math.random(), Math.random()) })); // Random car colors
+                    yPos = 1;
+                } else if (type === 'motorcycle') {
+                    obstacleMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1.5, 3), new THREE.MeshStandardMaterial({ color: 0x888888 })); // Dark gray motorcycle
+                    yPos = 0.75;
+                } else {
+                    obstacleMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), new THREE.MeshStandardMaterial({ color: 0xff8c00 })); // Orange human
+                    yPos = 1;
+                }
+                obstacleMesh.castShadow = true;
+                obstacleMesh.position.set(lanes[lane], yPos, -200);
+                scene.add(obstacleMesh);
+                obstacles.push({ mesh: obstacleMesh, type: type, punched: false });
+            }
+        }
+
+        function update() {
+             if (gameState !== 'playing') return;
+            baseSpeed += 0.0001;
+            const effectiveSpeed = currentSpeed;
+            distance += effectiveSpeed;
+
+            roadLines.forEach(l => { l.position.z += effectiveSpeed; if (l.position.z > 10) l.position.z -= 200; });
+            buildings.forEach(b => { b.position.z += effectiveSpeed; if(b.position.z > camera.position.z) b.position.z -= 600; });
+
+            cow.position.y = 1.5 + Math.sin(Date.now() * 0.02) * 0.1;
+            owner.position.set(cow.position.x, 1.5 + Math.sin(Date.now() * 0.02 + Math.PI) * 0.1, cow.position.z + ownerCurrentDistance);
+
+            if (slowdownTimer > 0) {
+                slowdownTimer--;
+                currentSpeed = baseSpeed * 0.5;
+                ownerCurrentDistance = Math.max(2, ownerCurrentDistance - 0.05);
+            } else {
+                currentSpeed = baseSpeed;
+                if(ownerCurrentDistance < ownerBaseDistance) ownerCurrentDistance += 0.02;
+            }
+
+            if (ownerCurrentDistance <= 1.8) gameOver();
+
+            const cowBox = new THREE.Box3().setFromObject(cow);
+            obstacles.forEach((obs, index) => {
+                obs.mesh.position.z += effectiveSpeed;
+                if (obs.mesh.position.z > camera.position.z + 10) {
+                    scene.remove(obs.mesh);
+                    obstacles.splice(index, 1);
+                } else {
+                     if (obs.punched) {
+                         obs.mesh.position.y += 0.5;
+                         obs.mesh.rotation.x += 0.1;
+                         obs.mesh.rotation.z += 0.1;
+                         return;
+                     }
+                    if (cowBox.intersectsBox(new THREE.Box3().setFromObject(obs.mesh))) handleCollision(obs);
+                }
+            });
+            spawnObstacle();
+            document.getElementById('score').innerText = `Score: ${score}`;
+            document.getElementById('distance').innerText = `Distance: ${Math.floor(distance)}m`;
+        }
+
+        function handleCollision(obs) {
+            if (obs.type === 'car' || obs.type === 'motorcycle') {
+                if (crashSound && Tone.context.state === 'running') crashSound.triggerAttackRelease("8n");
+                createParticles(cow.position, 0xffff00, 30);
+                if (slowdownTimer > 0) gameOver();
+                else slowdownTimer = slowdownDuration;
+            }
+        }
+
+        function punch() {
+            if (gameState !== 'playing') return;
+            if (punchSound && Tone.context.state === 'running') punchSound.triggerAttackRelease("C2", "8n");
+            if (mooSound && Tone.context.state === 'running') mooSound.triggerAttackRelease("A1", "1n");
+
+            const cowPunchBox = new THREE.Box3().setFromCenterAndSize( new THREE.Vector3(cow.position.x, cow.position.y, cow.position.z - 2), new THREE.Vector3(3, 3, 4) );
+            obstacles.forEach(obs => {
+                if(obs.type === 'human' && !obs.punched && cowPunchBox.intersectsBox(new THREE.Box3().setFromObject(obs.mesh))) {
+                    score++;
+                    obs.punched = true;
+                    if (Math.random() < 0.33) getFunnyTaunt(); // 33% chance for AI taunt
+                    createParticles(obs.mesh.position, 0xff0000, 50);
+                }
+            });
+        }
+
+        function createParticles(position, color, count) {
+            const particleGeo = new THREE.BufferGeometry();
+            const vertices = [];
+            for (let i = 0; i < count; i++) vertices.push(position.x, position.y, position.z);
+            particleGeo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            const particleMat = new THREE.PointsMaterial({ color, size: 0.3, transparent: true });
+            const particles = new THREE.Points(particleGeo, particleMat);
+            particles.velocities = Array.from({length: count * 3}, () => (Math.random() - 0.5) * 0.5);
+            scene.add(particles);
+            let life = 60;
+            function animateParticles() {
+                if(--life <= 0) { scene.remove(particles); return; }
+                const positions = particles.geometry.attributes.position.array;
+                for(let i=0; i<count*3; i++) positions[i] += particles.velocities[i];
+                particles.geometry.attributes.position.needsUpdate = true;
+                particles.material.opacity = life / 60;
+                requestAnimationFrame(animateParticles);
+            }
+            animateParticles();
+        }
+
+        function onKeyDown(event) {
+            if (gameState !== 'playing') return;
+            if (event.keyCode === 37) changeLane(-1);
+            else if (event.keyCode === 39) changeLane(1);
+            else if (event.keyCode === 32) punch();
+        }
+
+        function changeLane(direction) {
+            currentLane = Math.max(0, Math.min(2, currentLane + direction));
+        }
+
+        function gameOver() {
+            if(gameState === 'gameOver') return;
+            gameState = 'gameOver';
+            if (music) music.stop();
+            if (runSynth) runSynth.stop();
+            if (crashSound && Tone.context.state === 'running') crashSound.triggerAttackRelease("2n");
+            document.getElementById('final-score').innerText = `Your Score: ${score}`;
+            document.getElementById('game-over-screen').style.display = 'flex';
+            let zoomOutTime = 0;
+            function animateZoomOut() {
+                if (++zoomOutTime > 120) return;
+                camera.position.z += 0.1;
+                camera.position.y += 0.05;
+                camera.lookAt(cow.position);
+                requestAnimationFrame(animateZoomOut);
+            }
+            animateZoomOut();
+        }
+
+        function resetGame() {
+            score = 0; distance = 0; baseSpeed = 0.5;
+            slowdownTimer = 0; ownerCurrentDistance = ownerBaseDistance;
+            currentLane = 1;
+            currentSpeed = baseSpeed;
+            cow.position.set(lanes[currentLane], 1.5, 0);
+            obstacles.forEach(obs => scene.remove(obs.mesh));
+            obstacles = [];
+            document.getElementById('game-over-screen').style.display = 'none';
+            // Reset Gemini report button
+            const reportButton = document.getElementById('gemini-report-button');
+            reportButton.style.display = 'block';
+            reportButton.disabled = false;
+            reportButton.innerText = '✨ Get News Report';
+            document.getElementById('gemini-report-content').style.display = 'none';
+            camera.position.set(0, 5, 10);
+            camera.lookAt(0, 2, 0);
+        }
+
+        function restartGame() {
+            resetGame();
+            startGame();
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if (gameState === 'playing') {
+                cow.position.x += (lanes[currentLane] - cow.position.x) * 0.1;
+                // Add minor "dust" particles behind cow
+                if(Math.random() > 0.5) createParticles(new THREE.Vector3(cow.position.x, 0, cow.position.z + 1.5), 0x8B4513, 2);
+            }
+            update();
+            renderer.render(scene, camera);
+        }
+
+        init();
+    </script>
+</body>
+</html>
